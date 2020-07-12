@@ -41,6 +41,7 @@
 
 using namespace std;
 
+/* error function */
 double errorOfSolution(int numPoints, Eigen::Vector2d* points, const Eigen::Vector3d& circle)
 {
   Eigen::Vector2d center = circle.head<2>();
@@ -151,26 +152,30 @@ int main(int argc, char** argv)
   }
 
   // some handy typedefs
-  typedef g2o::BlockSolver< g2o::BlockSolverTraits<Eigen::Dynamic, Eigen::Dynamic> >  MyBlockSolver;
+  // typedef g2o::BlockSolver< g2o::BlockSolverTraits<Eigen::Dynamic, Eigen::Dynamic> >  MyBlockSolver;
+  /* state is 3d, measurement is 1d, so <3,1> */
+  typedef g2o::BlockSolver< g2o::BlockSolverTraits<3,1> >  MyBlockSolver;
   typedef g2o::LinearSolverCSparse<MyBlockSolver::PoseMatrixType> MyLinearSolver;
 
   // setup the solver
   g2o::SparseOptimizer optimizer;
   optimizer.setVerbose(false);
+
   g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(
     g2o::make_unique<MyBlockSolver>(g2o::make_unique<MyLinearSolver>()));
+  
   optimizer.setAlgorithm(solver);
 
   // build the optimization problem given the points
   // 1. add the circle vertex
   VertexCircle* circle = new VertexCircle();
   circle->setId(0);
-  circle->setEstimate(Eigen::Vector3d(3.0, 3.0, 3.0)); // some initial value for the circle
+  circle->setEstimate(Eigen::Vector3d(4.0, 5.0, 4.0)); // some initial value for the circle
   optimizer.addVertex(circle);
   // 2. add the points we measured
   for (int i = 0; i < numPoints; ++i) {
     EdgePointOnCircle* e = new EdgePointOnCircle;
-    e->setInformation(Eigen::Matrix<double, 1, 1>::Identity());
+    e->setInformation(Eigen::Matrix<double, 1, 1>::Identity()/ (0.05 * 0.05) );
     e->setVertex(0, circle);
     e->setMeasurement(points[i]);
     optimizer.addEdge(e);

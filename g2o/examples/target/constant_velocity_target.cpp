@@ -40,7 +40,7 @@
 #include <g2o/stuff/sampler.h>
 
 #include "targetTypes6D.hpp"
-#include "continuous_to_discrete.h"
+// #include "continuous_to_discrete.h"
 
 using namespace Eigen;
 using namespace std;
@@ -72,7 +72,7 @@ int main()
   state.setZero();
   for (int k = 0; k < 3; k++)
     {
-      state[k] = 1000 * sampleGaussian();
+      state[k] = 1000 * sampleGaussian(); /* assume a zero velocity */
     }
   
   // Construct the first vertex; this corresponds to the initial
@@ -95,19 +95,19 @@ int main()
 
       for (int m = 0; m < 3; m++)
         {
-          state[m] += dt * (state[m+3] + 0.5 * dt * processNoise[m]);
+          state[m] += dt * (state[m+3] + 0.5 * dt * processNoise[m]); /* position */
         }
 
       for (int m = 0; m < 3; m++)
         {
-          state[m+3] += dt * processNoise[m];
+          state[m+3] += dt * processNoise[m]; /* velocity */
         }
 
       // Construct the accelerometer measurement
       Vector3d accelerometerMeasurement;
       for (int m = 0; m < 3; m++)
         {
-          accelerometerMeasurement[m] = processNoise[m] + accelerometerNoiseSigma * sampleGaussian();
+          accelerometerMeasurement[m] = processNoise[m] + accelerometerNoiseSigma * sampleGaussian(); /*dt = 1 sec*/
         }
 
       // Construct the GPS observation
@@ -127,19 +127,19 @@ int main()
       TargetOdometry3DEdge* toe = new TargetOdometry3DEdge(dt, accelerometerNoiseSigma);
       toe->setVertex(0, lastStateNode);
       toe->setVertex(1, stateNode);
-      VertexPositionVelocity3D* vPrev= dynamic_cast<VertexPositionVelocity3D*>(lastStateNode);
-      VertexPositionVelocity3D* vCurr= dynamic_cast<VertexPositionVelocity3D*>(stateNode);
       toe->setMeasurement(accelerometerMeasurement);
       optimizer.addEdge(toe);
       
       // compute the initial guess via the odometry
       g2o::OptimizableGraph::VertexSet vPrevSet;
+      VertexPositionVelocity3D* vPrev= dynamic_cast<VertexPositionVelocity3D*>(lastStateNode);
+      VertexPositionVelocity3D* vCurr= dynamic_cast<VertexPositionVelocity3D*>(stateNode);
       vPrevSet.insert(vPrev);
       toe->initialEstimate(vPrevSet,vCurr);
 
       lastStateNode = stateNode;
 
-      // Add the GPS observation
+      // Add the GPS observation, unary edge
       GPSObservationEdgePositionVelocity3D* goe = new GPSObservationEdgePositionVelocity3D(gpsMeasurement, gpsNoiseSigma);
       goe->setVertex(0, stateNode);
       optimizer.addEdge(goe);

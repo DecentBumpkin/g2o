@@ -38,7 +38,7 @@
 #include "g2o/solvers/dense/linear_solver_dense.h"
 
 using namespace std;
-
+/*@Wei : refer to https://blog.csdn.net/YuYunTan/article/details/85303050*/
 /**
  * \brief the params, a, b, and lambda for a * exp(-lambda * t) + b
  */
@@ -69,6 +69,7 @@ class VertexParams : public g2o::BaseVertex<3, Eigen::Vector3d>
 
     virtual void oplusImpl(const double* update)
     {
+      /* alternatively, _estimate += Eigen::Vector3d(update); */
       Eigen::Vector3d::ConstMapType v(update);
       _estimate += v;
     }
@@ -146,13 +147,13 @@ int main(int argc, char** argv)
   }
 
   // some handy typedefs
-  typedef g2o::BlockSolver< g2o::BlockSolverTraits<Eigen::Dynamic, Eigen::Dynamic> >  MyBlockSolver;
+  // typedef g2o::BlockSolver< g2o::BlockSolverTraits<Eigen::Dynamic, Eigen::Dynamic> >  MyBlockSolver;
+  /* state is 3d, measurement is 1d, so <3,1> */
+  typedef g2o::BlockSolver< g2o::BlockSolverTraits<3,1> >  MyBlockSolver;
   typedef g2o::LinearSolverDense<MyBlockSolver::PoseMatrixType> MyLinearSolver;
 
   // setup the solver
   g2o::SparseOptimizer optimizer;
-  optimizer.setVerbose(false);
-
   g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(
     g2o::make_unique<MyBlockSolver>(g2o::make_unique<MyLinearSolver>()));
 
@@ -160,15 +161,16 @@ int main(int argc, char** argv)
 
   // build the optimization problem given the points
   // 1. add the parameter vertex
-  VertexParams* params = new VertexParams();
-  params->setId(0);
-  params->setEstimate(Eigen::Vector3d(1,1,1)); // some initial value for the params
-  optimizer.addVertex(params);
+  VertexParams* v = new VertexParams();
+  v->setId(0);
+  v->setEstimate(Eigen::Vector3d(1,1,1)); // some initial value for the params
+  optimizer.addVertex(v);
   // 2. add the points we measured to be on the curve
   for (int i = 0; i < numPoints; ++i) {
     EdgePointOnCurve* e = new EdgePointOnCurve;
-    e->setInformation(Eigen::Matrix<double, 1, 1>::Identity());
-    e->setVertex(0, params);
+    e->setId(i);
+    e->setInformation(Eigen::Matrix<double, 1, 1>::Identity()/ (0.02 * 0.02) ); /* inverse of covariance matrix*/
+    e->setVertex(0, v);
     e->setMeasurement(points[i]);
     optimizer.addEdge(e);
   }
@@ -185,9 +187,9 @@ int main(int argc, char** argv)
   cout << "Target curve" << endl;
   cout << "a * exp(-lambda * x) + b" << endl;
   cout << "Iterative least squares solution" << endl;
-  cout << "a      = " << params->estimate()(0) << endl;
-  cout << "b      = " << params->estimate()(1) << endl;
-  cout << "lambda = " << params->estimate()(2) << endl;
+  cout << "a      = " << v->estimate()(0) << endl;
+  cout << "b      = " << v->estimate()(1) << endl;
+  cout << "lambda = " << v->estimate()(2) << endl;
   cout << endl;
 
   // clean up

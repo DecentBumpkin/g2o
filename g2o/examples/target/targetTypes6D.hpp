@@ -93,7 +93,7 @@ public:
 
     // Process noise covariance matrix; this assumes an "impulse"
     // noise model; we add a small stabilising term on the diagonal to make it invertible
-    Matrix6d Q=Matrix6d::Zero();
+    Matrix6d Q=Matrix6d::Zero(); /* Please carefully understand this, the previous states are KNOWN values, not a distribution */
     Q(0, 0) = Q(1,1) = Q(2,2) = dt2*dt2*q/4 + 1e-4;
     Q(0, 3) = Q(1, 4) = Q(2, 5) = dt*dt2*q/2;
     Q(3, 3) = Q(4,4) = Q(5,5) = dt2 * q + 1e-4;

@@ -81,6 +81,8 @@ int main(int argc, char** argv)
     return 1;
   }
   optimizer.load(ifs);
+  cout<<"Loaded "<<optimizer.vertices().size()<<" vertices"<<endl;
+  cout<<"Loaded "<<optimizer.edges().size()<<" edges"<<endl;
   optimizer.initializeOptimization();
   optimizer.optimize(maxIterations);
 
