@@ -86,6 +86,7 @@ class VertexCameraBAL : public BaseVertex<9, Eigen::VectorXd>
       cerr << __PRETTY_FUNCTION__ << " not implemented yet" << endl;
     }
 
+    /* 9-dof state vector */
     virtual void oplusImpl(const double* update)
     {
       Eigen::VectorXd::ConstMapType v(update, VertexCameraBAL::Dimension);
@@ -135,7 +136,7 @@ class VertexPointBAL : public BaseVertex<3, Eigen::Vector3d>
  *
  * see: http://grail.cs.washington.edu/projects/bal/
  * We use a pinhole camera model; the parameters we estimate for each camera
- * area rotation R, a translation t, a focal length f and two radial distortion
+ * are a rotation R, a translation t, a focal length f and two radial distortion
  * parameters k1 and k2. The formula for projecting a 3D point X into a camera
  * R,t,f,k1,k2 is:
  * P  =  R * X + t       (conversion from world to camera coordinates)
@@ -152,6 +153,7 @@ class VertexPointBAL : public BaseVertex<3, Eigen::Vector3d>
  * z-axis points backwards, so the camera is looking down the negative z-axis,
  * as in OpenGL).
  */
+/** @Wei: Vector2d measurement connecting 9d VertexCameraBAL to 3d VertexPointBAL */
 class EdgeObservationBAL : public BaseBinaryEdge<2, Vector2d, VertexCameraBAL, VertexPointBAL>
 {
   public:
@@ -170,6 +172,7 @@ class EdgeObservationBAL : public BaseBinaryEdge<2, Vector2d, VertexCameraBAL, V
       return false;
     }
 
+    /* cross product */
     template<typename T>
     inline void cross(const T x[3], const T y[3], T result[3]) const
     {
@@ -178,9 +181,11 @@ class EdgeObservationBAL : public BaseBinaryEdge<2, Vector2d, VertexCameraBAL, V
       result[2] = x[0] * y[1] - x[1] * y[0];
     }
 
+    /* dot product */
     template<typename T>
     inline T dot(const T x[3], const T y[3]) const { return (x[0] * y[0] + x[1] * y[1] + x[2] * y[2]);}
 
+    /* l2 norm, only takes the first 3 elements fo the array */
     template<typename T>
     inline T squaredNorm(const T x[3]) const { return dot<T>(x, x);}
 

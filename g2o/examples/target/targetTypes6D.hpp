@@ -81,6 +81,7 @@ public:
 };
 
 // The odometry which links pairs of nodes together
+/* Only edge has computeError() method */
 class TargetOdometry3DEdge : public g2o::BaseBinaryEdge<6, Eigen::Vector3d, VertexPositionVelocity3D, VertexPositionVelocity3D>
 {
 public:

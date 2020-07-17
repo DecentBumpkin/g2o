@@ -205,6 +205,7 @@ bool EdgeProjectXYZ2UV::write(std::ostream& os) const {
   return writeInformationMatrix(os);
 }
 
+/* This is the most important Jacobian derivation */
 void EdgeSE3Expmap::linearizeOplus() {
   VertexSE3Expmap * vi = static_cast<VertexSE3Expmap *>(_vertices[0]);
   SE3Quat Ti(vi->estimate());
@@ -222,12 +223,14 @@ void EdgeSE3Expmap::linearizeOplus() {
   _jacobianOplusXj = -infTi_invTij.adj();
 }
 
+/** Detailed derivation see link below, or directly refer to GAOXIANG slambook p.167
+ *  https://blog.csdn.net/qq_25458977/article/details/100170663 */
 void EdgeProjectXYZ2UV::linearizeOplus() {
   VertexSE3Expmap * vj = static_cast<VertexSE3Expmap *>(_vertices[1]);
   SE3Quat T(vj->estimate());
   VertexSBAPointXYZ* vi = static_cast<VertexSBAPointXYZ*>(_vertices[0]);
   Vector3 xyz = vi->estimate();
-  Vector3 xyz_trans = T.map(xyz);
+  Vector3 xyz_trans = T.map(xyz); /* transformed to camera frame? */
 
   number_t x = xyz_trans[0];
   number_t y = xyz_trans[1];
@@ -286,6 +289,7 @@ bool EdgeSE3ProjectXYZ::write(std::ostream &os) const {
   return writeInformationMatrix(os);
 }
 
+/*https://www.telesens.co/2016/10/13/bundle-adjustment-part-1-jacobians/*/
 void EdgeSE3ProjectXYZ::linearizeOplus() {
   VertexSE3Expmap *vj = static_cast<VertexSE3Expmap *>(_vertices[1]);
   SE3Quat T(vj->estimate());

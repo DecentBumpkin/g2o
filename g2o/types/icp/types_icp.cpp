@@ -170,6 +170,7 @@ namespace g2o {
   //    f(T0,T1) =  dR0.inv() * T0.inv() * (T1 * dR1 * p1 + dt1) - dt0
   //    df/dx0 = [-I, d[dR0.inv()]/dq0 * T01 * p1]
   //    df/dx1 = [R0, T01 * d[dR1]/dq1 * p1]
+  /* @Wei : please refer to GAOXIANG slambook p167, derivation, very similar but with one more chain, the above is garbage*/
   void Edge_V_V_GICP::linearizeOplus()
   {
     VertexSE3* vp0 = static_cast<VertexSE3*>(_vertices[0]);

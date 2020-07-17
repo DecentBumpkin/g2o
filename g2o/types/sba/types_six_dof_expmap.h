@@ -104,6 +104,7 @@ public:
 
 /**
  * \brief 6D edge between two Vertex6
+ * This edge is not used in g2o/examples, but the Jacobian is derived.
  */
 class G2O_TYPES_SBA_API EdgeSE3Expmap : public BaseBinaryEdge<6, SE3Quat, VertexSE3Expmap, VertexSE3Expmap>{
   public:
@@ -119,14 +120,22 @@ class G2O_TYPES_SBA_API EdgeSE3Expmap : public BaseBinaryEdge<6, SE3Quat, Vertex
       const VertexSE3Expmap* v2 = static_cast<const VertexSE3Expmap*>(_vertices[1]);
 
       SE3Quat C(_measurement);
-      SE3Quat error_= v2->estimate().inverse()*C*v1->estimate();
+      SE3Quat error_= v2->estimate().inverse() * C * v1->estimate(); /* v1 transform from world_frame to cam1_frame, inv(v2) converts from cam2_frame to world frame again */
       _error = error_.log();
     }
 
     virtual void linearizeOplus();
 };
 
-
+/** @Wei: ba_demo.cpp, gaoxiang slambook derivation
+ * Please note the setEstimate of VertexSE3Expmap node is actually the anti-pose of transformation
+ * For example, consider a tranlation-only transform, from A_frame to B_frame, translation trans = (1,0,0);
+ * according to g2o implementation, this "trans" should be considered A_frame pose in B_frame, not the usually way
+ * 
+ * If it is the usual way, say (1, 0, 0) is the B_frame pose in A_frame, then the SE3 should convert coordinates from
+ * B_frame to A_frame, but in ba_demo example, v1->estimate() should convert world_frame coords v2->estimate() to cam_frame,
+ * not from cam_frame to world_frame, be very carefull, this is opposite to the normal robotics standard
+*/
 class G2O_TYPES_SBA_API EdgeProjectXYZ2UV : public  BaseBinaryEdge<2, Vector2, VertexSBAPointXYZ, VertexSE3Expmap>{
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
@@ -141,10 +150,11 @@ class G2O_TYPES_SBA_API EdgeProjectXYZ2UV : public  BaseBinaryEdge<2, Vector2, V
       const VertexSE3Expmap* v1 = static_cast<const VertexSE3Expmap*>(_vertices[1]);
       const VertexSBAPointXYZ* v2 = static_cast<const VertexSBAPointXYZ*>(_vertices[0]);
       const CameraParameters * cam = static_cast<const CameraParameters *>(parameter(0));
-      _error = measurement() - cam->cam_map(v1->estimate().map(v2->estimate()));
+      /* v1's state is the tf from world_frame to camera_frame, then use camera parameter to transform from camera_frame to image_frame*/
+      _error = measurement() - cam->cam_map(v1->estimate().map(v2->estimate())); /* See gaoxiang slam book */
     }
 
-    virtual void linearizeOplus();
+    virtual void linearizeOplus(); /* defined in types_six_dof_expmap.cpp */
 
     CameraParameters * _cam;
 };

@@ -109,7 +109,7 @@ int main(int argc, const char* argv[])
 
   g2o::SparseOptimizer optimizer;
   optimizer.setVerbose(false);
-  std::unique_ptr<g2o::BlockSolver_6_3::LinearSolverType> linearSolver;
+  std::unique_ptr<g2o::BlockSolver_6_3::LinearSolverType> linearSolver; /* 6-dof state and 3-dof meas.*/
   if (DENSE)
   {
     linearSolver = g2o::make_unique<g2o::LinearSolverDense<g2o::BlockSolver_6_3::PoseMatrixType>>();
@@ -133,7 +133,7 @@ int main(int argc, const char* argv[])
 
   optimizer.setAlgorithm(solver);
 
-  // set up 500 points
+  // set up 500 points, identical to ba_demo
   vector<Vector3d> true_points;
   for (size_t i=0;i<500; ++i)
   {
@@ -143,20 +143,24 @@ int main(int argc, const char* argv[])
   }
 
 
-  Vector2d focal_length(500,500); // pixels
+  Vector2d focal_length(500,500); // pixels for two cameras
   Vector2d principal_point(320,240); // 640x480 image
-  double baseline = 0.075;      // 7.5 cm baseline
+  double baseline = 0.075;      // 7.5 cm baseline between the two stereo-camera
 
 
   vector<Eigen::Isometry3d,
       aligned_allocator<Eigen::Isometry3d> > true_poses;
 
   // set up camera params
+  /*Stereo camera vertex, derived from SE3 class. 
+  Note that we use the actual pose of the vertex as its parameterization, 
+  rather than the transform from RW to camera coords. 
+  Uses static vars for camera params, so there is a single camera setup*/
   g2o::VertexSCam::setKcam(focal_length[0],focal_length[1],
                            principal_point[0],principal_point[1],
                            baseline);
 
-  // set up 5 vertices, first 2 fixed
+  // set up 5 vertices, first one fixed
   int vertex_id = 0;
   for (size_t i=0; i<5; ++i)
   {

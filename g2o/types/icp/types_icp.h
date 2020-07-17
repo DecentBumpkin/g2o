@@ -198,8 +198,8 @@ namespace g2o {
       else
 #endif
         {
-          p1 = vp1->estimate() * measurement().pos1;
-          p1 = vp0->estimate().inverse() * p1;
+          p1 = vp1->estimate() * measurement().pos1; /* p1 from cam1 frame to world frame */
+          p1 = vp0->estimate().inverse() * p1; /* p1 from world frame to cam0 frame */
         }
 
       //      cout << endl << "Error computation; points are: " << endl;
@@ -208,7 +208,7 @@ namespace g2o {
 
       // get their difference
       // this is simple Euclidean distance, for now
-      _error = p1 - measurement().pos0;
+      _error = p1 - measurement().pos0; /* both in cam0 frame */
 
 #if 0
       cout << "vp0" << endl << vp0->estimate() << endl;
@@ -228,7 +228,7 @@ namespace g2o {
 
     // try analytic jacobians
 #ifdef GICP_ANALYTIC_JACOBIANS
-    virtual void linearizeOplus();
+    virtual void linearizeOplus(); /* defined in types_icp.cpp */
 #endif
 
     // global derivative matrices

@@ -41,9 +41,10 @@ using namespace Eigen;
 using namespace std;
 using namespace g2o;
 
+/**/
 int main()
 {
-  double euc_noise = 0.01;       // noise in position, m
+  double euc_noise = 0.01;       // noise in position, [meter],
   //  double outlier_ratio = 0.1;
 
   SparseOptimizer optimizer;
@@ -64,12 +65,12 @@ int main()
   }
 
 
-  // set up two poses
+  // set up the two poses, fix the first and optimize the second
   int vertex_id = 0;
   for (size_t i=0; i<2; ++i)
   {
     // set up rotation and translation for this node
-    Vector3d t(0,0,i);
+    Vector3d t(0,0,5.0d * i); /*[0,0,0] for the first pose, [0,0,1] for the second */
     Quaterniond q;
     q.setIdentity();
 
@@ -87,10 +88,10 @@ int main()
 
     // set first cam pose fixed
     if (i==0)
-      vc->setFixed(true);
+      vc->setFixed(true); /* first pose is "grounded" */
 
     // add to optimizer
-    optimizer.addVertex(vc);
+    optimizer.addVertex(vc); 
 
     vertex_id++;
   }
@@ -106,7 +107,7 @@ int main()
 
     // calculate the relative 3D position of the point
     Vector3d pt0,pt1;
-    pt0 = vp0->estimate().inverse() * true_points[i];
+    pt0 = vp0->estimate().inverse() * true_points[i]; /* from world frame to local pose frame */
     pt1 = vp1->estimate().inverse() * true_points[i];
 
     // add in noise
@@ -118,10 +119,10 @@ int main()
                     g2o::Sampler::gaussRand(0., euc_noise),
                     g2o::Sampler::gaussRand(0., euc_noise));
 
-    // form edge, with normals in varioius positions
+    // form edge, with normals in various positions
     Vector3d nm0, nm1;
-    nm0 << 0, i, 1;
-    nm1 << 0, i, 1;
+    nm0 << 0, 0, 1;
+    nm1 << 0, 0, 1;
     nm0.normalize();
     nm1.normalize();
 
@@ -132,8 +133,8 @@ int main()
     e->setVertex(1, vp1);      // second viewpoint
 
     EdgeGICP meas;
-    meas.pos0 = pt0;
-    meas.pos1 = pt1;
+    meas.pos0 = pt0; /* in cam pose frame */
+    meas.pos1 = pt1; /* in cam pose frame */
     meas.normal0 = nm0;
     meas.normal1 = nm1;
 
@@ -157,7 +158,7 @@ int main()
   VertexSE3* vc =
     dynamic_cast<VertexSE3*>(optimizer.vertices().find(1)->second);
   Eigen::Isometry3d cam = vc->estimate();
-  cam.translation() = Vector3d(0,0,0.2);
+  cam.translation() = Vector3d(0,0.5,-2.5);
   vc->setEstimate(cam);
 
   optimizer.initializeOptimization();
@@ -166,11 +167,11 @@ int main()
 
   optimizer.setVerbose(true);
 
-  optimizer.optimize(5);
+  optimizer.optimize(10);
 
   cout << endl << "Second vertex should be near 0,0,1" << endl;
-  cout <<  dynamic_cast<VertexSE3*>(optimizer.vertices().find(0)->second)
+  cout << "first cam pose:  " <<  dynamic_cast<VertexSE3*>(optimizer.vertices().find(0)->second)
     ->estimate().translation().transpose() << endl;
-  cout <<  dynamic_cast<VertexSE3*>(optimizer.vertices().find(1)->second)
+  cout << "second cam pose: " <<  dynamic_cast<VertexSE3*>(optimizer.vertices().find(1)->second)
     ->estimate().translation().transpose() << endl;
 }
