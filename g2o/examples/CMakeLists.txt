@@ -8,6 +8,7 @@ if(CHOLMOD_FOUND)
   add_subdirectory(target)
   add_subdirectory(ba)
   add_subdirectory(ba_anchored_inverse_depth)
+  add_subdirectory(demo)
 endif(CHOLMOD_FOUND)
 
 # Examples which explicitly use CSparse

@@ -18,13 +18,14 @@ Nevertheless it provides good introduction to the methods need to be overwriten 
 virtual bool read(std::istream& is);  
 virtual bool write(std::ostream& os) const;  
 virtual void oplusImpl(const number_t* update);  
-virtual void setToOriginImpl();
-
+virtual void setToOriginImpl();  
+void 	setUncertainty (const Matrix< double, D, D > &uncertainty) see[link](http://docs.ros.org/fuerte/api/re_vision/html/classg2o_1_1BaseVertex.html)  
 自定义边如要覆盖如下方法：  
 virtual bool read(std::istream& is);  
 virtual bool write(std::ostream& os) const;  
 virtual void computeError();  
-virtual void linearizeOplus();
+virtual void linearizeOplus();  
+void 	setInformation (const InformationType &information) see [link](http://docs.ros.org/fuerte/api/re_vision/html/classg2o_1_1BaseEdge.html)  
 ## g2o GICP
 please refer to teh types_icp.xx and gicp_demp.cpp for more information  
 this example is very weird, point is not vertex, only two vertices are cam poses, all the points are edges connecting two poses  
@@ -57,4 +58,7 @@ In G2O definition of SE3, Rotation precedes Translation, as is in Maani Slide
 while in GAOXIANG Slambook, Ethan Handbook, Translation precedes Rotation  
 Need to pay special attention to the order, when calculate Jacobian  
 
-bal_example.cpp bundle adjustment at large is using **ceres::internal::AutoDifferentiate** for Jacobian Calculation, **NOT** user provided.
+bal_example.cpp bundle adjustment at large is using **ceres::internal::AutoDifferentiate** for Jacobian Calculation, **NOT** user provided.  
+
+**Uncertainty of a vertex seems to have been removed in the from the current development versions of g2o**  
+**error: ‘class g2o::VertexSE3Expmap’ has no member named ‘uncertainty’**
