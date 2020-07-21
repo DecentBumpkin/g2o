@@ -25,6 +25,7 @@ public:
     virtual void oplusImpl(const number_t* update_)  {
         Eigen::Map<const Vector6> update(update_);
         setEstimate(SE3Quat::exp(update)*estimate());
+        std::cout << "new translation: " << estimate().translation().transpose() << '\n';
     }
 };
 
@@ -62,12 +63,13 @@ public:
 
       void computeError()
       {
-        const VertexSE3Expmap* v0 = static_cast<const VertexSE3Expmap*>(_vertices[0]);
-        const VertexSE3Expmap* v1 = static_cast<const VertexSE3Expmap*>(_vertices[1]);
-        const VertexPointXYZ*  v2 = static_cast<const VertexPointXYZ*>(_vertices[2]);
-        _error = v1->estimate().map(v0->estimate().map(measurement())) - v2->estimate();
+        const VertexSE3Expmap* v_se3_il = static_cast<const VertexSE3Expmap*>(_vertices[0]);
+        const VertexSE3Expmap* v_se3_wi = static_cast<const VertexSE3Expmap*>(_vertices[1]);
+        const VertexPointXYZ*  v_xyz_feat = static_cast<const VertexPointXYZ*>(_vertices[2]);
+        _error =  v_xyz_feat->estimate() - (v_se3_wi->estimate() * v_se3_il->estimate()).map(measurement());
+        std::cout << "Error: \n" << _error << '\n';
       }
-      void linearizeOplus();
+      void linearizeOplus() override;
       virtual bool read(std::istream& is);
       virtual bool write(std::ostream& os) const;
 
