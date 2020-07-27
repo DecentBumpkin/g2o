@@ -94,5 +94,13 @@ Matrix3 Edge_SE3_SE3_XYZ::dRidx; /* dRidx * p is the first column of skew-symmet
 Matrix3 Edge_SE3_SE3_XYZ::dRidy;
 Matrix3 Edge_SE3_SE3_XYZ::dRidz; 
 
+void PointXYZMeasurementEdge::linearizeOplus(){
+
+}
+void ImuSE3MeasurementEdge::linearizeOplus(){
+
+}
+
+
 } // end namespace
 

@@ -62,3 +62,8 @@ bal_example.cpp bundle adjustment at large is using **ceres::internal::AutoDiffe
 
 **Uncertainty of a vertex seems to have been removed in the from the current development versions of g2o**  
 **error: ‘class g2o::VertexSE3Expmap’ has no member named ‘uncertainty’**
+
+
+**TODO**  
+rewrite EdgeSE3Expmap(SE3->SE3->SE3) to a unary edge(SE3->SE3->SE3)   
+set information matrix to identity is FINE, see [here](https://github.com/RainerKuemmerle/g2o/issues/325)  

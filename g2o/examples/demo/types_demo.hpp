@@ -1,6 +1,7 @@
 #ifndef TYPES_DEMO_HPP
 #define TYPES_DEMO_HPP
 #include "g2o/core/base_multi_edge.h"
+#include "g2o/core/base_unary_edge.h"
 #include "g2o/core/base_vertex.h"
 #include "g2o/types/slam3d/se3quat.h"
 #include <Eigen/Geometry>
@@ -77,6 +78,59 @@ public:
       static Matrix3 dRidy;
       static Matrix3 dRidz;
   };
-}
+
+
+  class G2O_TYPES_DEMO_API PointXYZMeasurementEdge:  public g2o::BaseUnaryEdge<3, Vector3, VertexPointXYZ>
+  {
+    PointXYZMeasurementEdge() {}
+    
+    void computeError()
+    {
+      // const VertexPosition3D* v = static_cast<const VertexPosition3D*>(_vertices[0]);
+      // _error = v->estimate() - _measurement;
+    }
+    
+    void linearizeOplus();
+
+    virtual bool read(std::istream& /*is*/)
+    {
+      return false;
+    }
+    
+    virtual bool write(std::ostream& /*os*/) const
+    {
+      return false;
+    }
+  };
+  /**
+   * rewrite EdgeSE3Expmap(SE3->SE3->SE3) to a unary edge(SE3->SE3->SE3) 
+   * set information matrix to identity is FINE 
+   * https://github.com/RainerKuemmerle/g2o/issues/325
+  */
+  class G2O_TYPES_DEMO_API ImuSE3MeasurementEdge : public g2o::BaseUnaryEdge<3, SE3Quat, VertexSE3Expmap>
+  {
+  public:
+    ImuSE3MeasurementEdge(){}
+    
+    void computeError()
+    {
+      // const VertexPosition3D* v = static_cast<const VertexPosition3D*>(_vertices[0]);
+      // _error = v->estimate() - _measurement;
+    }
+    
+    void linearizeOplus();
+
+    virtual bool read(std::istream& /*is*/)
+    {
+      return false;
+    }
+    
+    virtual bool write(std::ostream& /*os*/) const
+    {
+      return false;
+    }
+  };
+
+} // namespace
 
 #endif
