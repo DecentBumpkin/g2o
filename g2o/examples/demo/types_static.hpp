@@ -25,6 +25,10 @@ public:
     virtual void oplusImpl(const number_t* update_)  {
         Eigen::Map<const Vector6> update(update_);
         setEstimate(SE3Quat::exp(update)*estimate());
+        // SE3Quat temp = SE3Quat::exp(update) * estimate();
+        // temp.setTranslation(Eigen::Vector3d(-2.016, 3.546, 0.829));
+        // std::cout << temp << std::endl;
+        // setEstimate(temp);
     }
 };
 

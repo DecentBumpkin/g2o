@@ -72,11 +72,13 @@ void Edge_SE3_XYZ::linearizeOplus(){
     // Vector3 xyz_w_meas = T_se3_wl.map(xyz_l);
     // Matrix3 R_wl = T_se3_wl.rotation().toRotationMatrix();
     
+    _jacobianOplusXj = -Matrix3::Identity();
     _jacobianOplusXi.block<3,3>(0,3) = Matrix3::Identity();
+    // _jacobianOplusXi.block<3,3>(0,3) = Matrix3::Zero();
     _jacobianOplusXi.block<3,1>(0,0) = - dRidx * xyz_l;
     _jacobianOplusXi.block<3,1>(0,1) = - dRidy * xyz_l;
     _jacobianOplusXi.block<3,1>(0,2) = - dRidz * xyz_l;
-    _jacobianOplusXj = -Matrix3::Identity();
+    
 
 }
 
