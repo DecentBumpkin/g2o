@@ -11,6 +11,7 @@
 #include "g2o/solvers/dense/linear_solver_dense.h"
 #include "g2o/solvers/structure_only/structure_only_solver.h"
 #include "g2o/stuff/sampler.h"
+#include "g2o/stuff/command_args.h"
 #include "types_static.hpp"
 
 #include "rapidjson/reader.h"
@@ -22,24 +23,49 @@
 using namespace Eigen;
 using namespace std;
 
-int readPointsJSON(const char* name, std::vector<Eigen::Vector3d>& points);
-int writePointsJSON(const char* name, const std::vector<Eigen::Vector3d>& points);
-void convertFromLidarToWorld(const std::vector<Eigen::Vector3d>& points_src,  
-                            std::vector<Eigen::Vector3d>& points_final, 
+int readPointsJSON(const char* name, unordered_map<int, shared_ptr<Eigen::Vector3d> >& map);
+int writePointsJSON(const char* name, const unordered_map<int, shared_ptr<Eigen::Vector3d> >& map);
+void convertFromLidarToWorld(const unordered_map<int, shared_ptr<Eigen::Vector3d> >& map_src,  
+                            unordered_map<int, shared_ptr<Eigen::Vector3d> >& map_final, 
                             const g2o::SE3Quat& T);
-/* the only edge used in this example is EdgeProjectXYZ2UV, its linearizeOplus() defined in types_six_dof_expmap.cpp */
-int main(int argc, const char* argv[]) {
 
+/* the only edge used in this example is EdgeProjectXYZ2UV, its linearizeOplus() defined in types_six_dof_expmap.cpp */
+int main(int argc, char* argv[]) {
+
+    //// Todo, read fix total station points and selected position from json 
     printf("%d %s\n", argc, argv[0]); /* TODO Parse Commandline*/
-    
-    std::vector<Eigen::Vector3d> xyz_l, xyz_w;
-    if(readPointsJSON("/home/wei/PolyExplore/LivoxStatic/build/points_in_lidar_frame.json", xyz_l))
+
+    std::string points_in_lidar_frame;
+    std::string points_in_world_frame;
+    int maxIterations;
+    bool verbose;
+    bool fixOrigin;
+    g2o::CommandArgs arg;
+    arg.param("livox", points_in_lidar_frame, "/home/wei/PolyExplore/LivoxStatic/data/2020-07-30-14-49-53_6_select.json", "points selected from .lvx");
+    arg.param("world", points_in_world_frame, "/home/wei/PolyExplore/LivoxStatic/scripts/features_in_world_frame.json", "features surveyed and calculated by total station");
+    arg.param("i", maxIterations, 10, "perform n iterations");
+    arg.param("v", verbose, false, "verbose output of the optimization process");
+    arg.param("fix", fixOrigin, false, "whether fix the livox origin at measured position xyz");
+    arg.parseArgs(argc, argv);
+
+    printf("select points: %s\n"
+            "survey points: %s\n"
+            "max iterations: %d\n"
+            "verbose: %s\n"
+            "fixOrigin: %s\n",
+            points_in_lidar_frame.c_str(), 
+            points_in_world_frame.c_str(),
+            maxIterations, 
+            verbose?"YES":"NO",
+            fixOrigin?"YES":"NO");
+
+    unordered_map<int, shared_ptr<Eigen::Vector3d> > xyz_l, xyz_w;
+    if(readPointsJSON(points_in_lidar_frame.c_str(), xyz_l))
     {
         printf("Read lidar_frame failure!");
         return 1;
     }
-    std::vector<int> indices{1,2,3,4,5,6,7,8,10};
-    if(readPointsJSON("/home/wei/PolyExplore/LivoxStatic/scripts/total_station_xyz.json", xyz_w))
+    if(readPointsJSON(points_in_world_frame.c_str(), xyz_w))
     {
         printf("Read world_frame failure!");
         return 1;
@@ -67,44 +93,44 @@ int main(int argc, const char* argv[]) {
 
     std::cout << "Nominal Imu->Lidar SE3: \n" << T_wl_guess <<'\n';
     
-    g2o::VertexSE3Expmap * v_se3_wl = new g2o::VertexSE3Expmap();
+    g2o::VertexSE3Expmap * v_se3_wl = new g2o::VertexSE3Expmap(fixOrigin);
     v_se3_wl->setId(0);
     v_se3_wl->setEstimate(T_wl_guess.inverse());
     optimizer.addVertex(v_se3_wl);
 
     int vertex_id = 0; /* 0 is reserved for v_se3_il */
-    for (size_t i = 0; i < 9; i++ )
+    for (auto& it : xyz_l)
     {
         g2o::VertexPointXYZ * v_xyz_w = new g2o::VertexPointXYZ();
-        std::cout << xyz_w[indices[i]].transpose() << std::endl;
+        std::cout << (*xyz_w[it.first]).transpose() << std::endl;
         
         v_xyz_w->setId(++vertex_id);
         v_xyz_w->setFixed(true); /* fix the first camera pose */
-        v_xyz_w->setEstimate(xyz_w[indices[i]]); 
+        v_xyz_w->setEstimate(*xyz_w[it.first]); 
         optimizer.addVertex(v_xyz_w); 
 
 
         g2o::Edge_SE3_XYZ * e = new g2o::Edge_SE3_XYZ();
         e->setVertex(0, v_se3_wl);
         e->setVertex(1, v_xyz_w);
-        std::cout << xyz_l[i].transpose() << std::endl;
-        e->setMeasurement(xyz_l[i]);
+        std::cout << (*it.second).transpose() << std::endl;
+        e->setMeasurement(*it.second);
         e->information() = Matrix3d::Identity()/( 0.02 * 0.02 );
         optimizer.addEdge(e);
     }
 
 
     optimizer.initializeOptimization();
-    optimizer.setVerbose(true);
-    optimizer.optimize(20);
+    optimizer.setVerbose(verbose);
+    optimizer.optimize(maxIterations);
 
     auto T_final = dynamic_cast<g2o::VertexSE3Expmap*>(optimizer.vertices().find(0)->second)->estimate();
     std::cout << " Initial Guess : \n" << T_wl_guess << '\n';
     std::cout << " Final Result  : \n" << T_final  << '\n';
-    for(int i = 0;i < 9; i++){
-        std::cout << "total station: " << xyz_w[indices[i]].transpose() << std::endl;
-        std::cout << "livox aligned: " << T_final.map(xyz_l[i]).transpose() << std::endl;
-        printf("error: %.5lf\n", (xyz_w[indices[i]] - T_final.map(xyz_l[i])).norm());
+    for(auto& it : xyz_l){
+        std::cout << "total station: " << (*xyz_w[it.first]).transpose() << std::endl;
+        std::cout << "livox aligned: " << T_final.map(*it.second).transpose() << std::endl;
+        printf("error: %.5lf\n", (*xyz_w[it.first] - T_final.map(*it.second)).norm());
     }
 
     std::cout << "Final Transformation:\n" << T_final << std::endl;
@@ -112,36 +138,38 @@ int main(int argc, const char* argv[]) {
     std::cout << "Meausred lidar origin in lidar_frame: \n" << T_final.inverse().map(lidar).transpose() << std::endl;
     std::cout << "Meausred lidar origin in lidar_frame: " << T_final.inverse().map(lidar).norm() << std::endl;
     
-    std::vector<Eigen::Vector3d> xyz_final;
+    std::unordered_map<int, std::shared_ptr<Eigen::Vector3d> > xyz_final;
     convertFromLidarToWorld(xyz_l, xyz_final, T_final);
     writePointsJSON("copy_of_world.json", xyz_final);
     
 }
 
-void convertFromLidarToWorld(const std::vector<Eigen::Vector3d>& points_src,  
-                            std::vector<Eigen::Vector3d>& points_final, 
+void convertFromLidarToWorld(const unordered_map<int, shared_ptr<Eigen::Vector3d> >& map_src,  
+                            unordered_map<int, shared_ptr<Eigen::Vector3d> >& map_final, 
                             const g2o::SE3Quat& T){
-    points_final.clear();
-    for(auto& point_src : points_src){
-        points_final.push_back(T.map(point_src));
+    map_final.clear();
+    for(auto& it : map_src){
+        map_final.emplace(it.first, make_shared<Eigen::Vector3d>(T.map(*it.second )) );
     }
-    assert(point_src.size() == points_final.size());
+    assert(map_src.size() == map_final.size());
 }
 
-int writePointsJSON(const char* name, const std::vector<Eigen::Vector3d>& points){
+int writePointsJSON(const char* name, const unordered_map<int, shared_ptr<Eigen::Vector3d> >& map){
 
     rapidjson::Document doc;
     doc.SetObject();
     rapidjson::Value points_js = rapidjson::Value(rapidjson::kArrayType);
-    for(auto& point : points)
+    for(auto& it : map)
     {
         rapidjson::Value item(rapidjson::kObjectType);
         rapidjson::Value point_js(rapidjson::kObjectType);
-        item.SetDouble(point[0]);
+        item.SetInt(it.first);
+        point_js.AddMember("id", item, doc.GetAllocator());
+        item.SetDouble((*it.second)[0]);
         point_js.AddMember("x", item, doc.GetAllocator());
-        item.SetDouble(point[1]);
+        item.SetDouble((*it.second)[1]);
         point_js.AddMember("y", item, doc.GetAllocator());
-        item.SetDouble(point[2]);
+        item.SetDouble((*it.second)[2]);
         point_js.AddMember("z", item, doc.GetAllocator()); /* item is moved */
         points_js.PushBack(point_js, doc.GetAllocator()); /* point is moved */
     }
@@ -159,7 +187,7 @@ int writePointsJSON(const char* name, const std::vector<Eigen::Vector3d>& points
     return 0;
 }
 
-int readPointsJSON(const char* name, std::vector<Eigen::Vector3d>& points){
+int readPointsJSON(const char* name, unordered_map<int, shared_ptr<Eigen::Vector3d> >& map){
     FILE* fp = fopen(name, "r"); // non-Windows use "r"
     if(!fp) return 1;
     char readBuffer[65536];
@@ -167,18 +195,22 @@ int readPointsJSON(const char* name, std::vector<Eigen::Vector3d>& points){
     rapidjson::Document doc;
     doc.ParseStream(is);
 
-    points.clear();
     if (doc.HasMember("points") && doc["points"].IsArray())
     {
         printf("reading lvx %u picked points...\n", doc["points"].Size());
         const rapidjson::Value &array = doc["points"];
         for(auto it = array.Begin(); it != array.End(); it++){
         
-            if(it->HasMember("x") && (*it)["x"].IsDouble() &&
+            if(it->HasMember("id") && (*it)["id"].IsInt() &&
+                it->HasMember("x") && (*it)["x"].IsDouble() &&
                 it->HasMember("y") && (*it)["y"].IsDouble() &&
                 it->HasMember("z") && (*it)["z"].IsDouble() ){
-                printf("Read point %lf %lf %lf\n",(*it)["x"].GetDouble(),(*it)["y"].GetDouble(),(*it)["z"].GetDouble());
-                points.emplace_back((*it)["x"].GetDouble(),(*it)["y"].GetDouble(),(*it)["z"].GetDouble());
+                int id = (*it)["id"].GetInt();
+                double x = (*it)["x"].GetDouble();
+                double y = (*it)["y"].GetDouble();
+                double z = (*it)["z"].GetDouble();
+                printf("Read point %d %lf %lf %lf\n",id, x, y, z);
+                map.emplace(id, make_shared<Eigen::Vector3d>(x,y,z) );
             }
         }
     }

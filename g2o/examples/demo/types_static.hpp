@@ -12,7 +12,7 @@ class G2O_TYPES_DEMO_API VertexSE3Expmap : public BaseVertex<6, SE3Quat>{
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    VertexSE3Expmap();
+    VertexSE3Expmap(bool _fixOrigin = false); // by default in declaration, do NOT fixed origin
 
     bool read(std::istream& is);
 
@@ -24,12 +24,19 @@ public:
 
     virtual void oplusImpl(const number_t* update_)  {
         Eigen::Map<const Vector6> update(update_);
-        setEstimate(SE3Quat::exp(update)*estimate());
-        // SE3Quat temp = SE3Quat::exp(update) * estimate();
-        // temp.setTranslation(Eigen::Vector3d(-2.016, 3.546, 0.829));
-        // std::cout << temp << std::endl;
-        // setEstimate(temp);
+        if(!fixOrigin)
+        {
+          setEstimate(SE3Quat::exp(update)*estimate());
+        }
+        else{
+          SE3Quat temp = SE3Quat::exp(update) * estimate();
+          temp.setTranslation(Eigen::Vector3d(-2.016, 3.546, 0.829));
+          std::cout << temp << std::endl;
+          setEstimate(temp);
+        }
     }
+
+    bool fixOrigin;
 };
 
 /**

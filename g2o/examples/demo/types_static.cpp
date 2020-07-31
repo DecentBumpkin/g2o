@@ -2,8 +2,9 @@
 
 namespace g2o {
 
-VertexSE3Expmap::VertexSE3Expmap() : BaseVertex<6, SE3Quat>() 
+VertexSE3Expmap::VertexSE3Expmap(bool _fixOrigin) : BaseVertex<6, SE3Quat>() 
 {
+    fixOrigin = _fixOrigin;
 }
 
 bool VertexSE3Expmap::read(std::istream& ) 
