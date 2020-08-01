@@ -20,6 +20,8 @@
 #include "rapidjson/filereadstream.h"
 #include "rapidjson/filewritestream.h"
 
+#include <yaml-cpp/yaml.h>
+
 using namespace Eigen;
 using namespace std;
 
@@ -35,29 +37,44 @@ int main(int argc, char* argv[]) {
     //// Todo, read fix total station points and selected position from json 
     printf("%d %s\n", argc, argv[0]); /* TODO Parse Commandline*/
 
-    std::string points_in_lidar_frame;
-    std::string points_in_world_frame;
     int maxIterations;
     bool verbose;
     bool fixOrigin;
     g2o::CommandArgs arg;
-    arg.param("livox", points_in_lidar_frame, "/home/wei/PolyExplore/LivoxStatic/data/2020-07-30-14-49-53_6_select.json", "points selected from .lvx");
-    arg.param("world", points_in_world_frame, "/home/wei/PolyExplore/LivoxStatic/scripts/features_in_world_frame.json", "features surveyed and calculated by total station");
     arg.param("i", maxIterations, 10, "perform n iterations");
     arg.param("v", verbose, false, "verbose output of the optimization process");
     arg.param("fix", fixOrigin, false, "whether fix the livox origin at measured position xyz");
     arg.parseArgs(argc, argv);
 
-    printf("select points: %s\n"
-            "survey points: %s\n"
-            "max iterations: %d\n"
+    printf("max iterations: %d\n"
             "verbose: %s\n"
             "fixOrigin: %s\n",
-            points_in_lidar_frame.c_str(), 
-            points_in_world_frame.c_str(),
             maxIterations, 
             verbose?"YES":"NO",
             fixOrigin?"YES":"NO");
+
+    std::string points_in_lidar_frame;
+    std::string points_in_world_frame;
+    std::shared_ptr<Eigen::Vector3d> livox_origin_ptr;
+    try{
+        YAML::Node config = YAML::LoadFile("../g2o/examples/demo/demo_static.yaml");
+        int origin_id = config["origin_id"].as<int>();
+        double orig_x = config[origin_id]["x"].as<double>();
+        double orig_y = config[origin_id]["y"].as<double>();
+        double orig_z = config[origin_id]["z"].as<double>();
+        printf("Use Fixed Origin id = %d\n", origin_id);
+        livox_origin_ptr = std::make_shared<Eigen::Vector3d>(orig_x, orig_y, orig_z);
+        std::cout<<"Selected origin coord: \n" << livox_origin_ptr->transpose() << std::endl;
+        points_in_lidar_frame = config["livox_points_path"].as<std::string>();
+        points_in_world_frame = config["world_points_path"].as<std::string>();
+        std::cout<< "livox path: " << points_in_lidar_frame << std::endl;
+        std::cout<< "world path: " << points_in_world_frame << std::endl;
+    }
+    catch(std::exception& e){
+        std::cout<< e.what() << std::endl;
+        printf("Could not load config file, total failure");
+        return 1;
+    }
 
     unordered_map<int, shared_ptr<Eigen::Vector3d> > xyz_l, xyz_w;
     if(readPointsJSON(points_in_lidar_frame.c_str(), xyz_l))
@@ -93,7 +110,12 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Nominal Imu->Lidar SE3: \n" << T_wl_guess <<'\n';
     
-    g2o::VertexSE3Expmap * v_se3_wl = new g2o::VertexSE3Expmap(fixOrigin);
+    g2o::VertexSE3Expmap * v_se3_wl = new g2o::VertexSE3Expmap();
+    if(fixOrigin) 
+    {
+        v_se3_wl-> setFixPositionMode(true);
+        v_se3_wl-> setFixPosition(livox_origin_ptr);
+    }
     v_se3_wl->setId(0);
     v_se3_wl->setEstimate(T_wl_guess.inverse());
     optimizer.addVertex(v_se3_wl);
@@ -134,13 +156,13 @@ int main(int argc, char* argv[]) {
     }
 
     std::cout << "Final Transformation:\n" << T_final << std::endl;
-    Eigen::Vector3d lidar(-2.016, 3.546, 0.829);
-    std::cout << "Meausred lidar origin in lidar_frame: \n" << T_final.inverse().map(lidar).transpose() << std::endl;
-    std::cout << "Meausred lidar origin in lidar_frame: " << T_final.inverse().map(lidar).norm() << std::endl;
+    std::cout << "Meausred lidar origin in lidar_frame: \n" << T_final.inverse().map(*livox_origin_ptr).transpose() << std::endl;
+    std::cout << "Meausred lidar origin in lidar_frame: " << T_final.inverse().map(*livox_origin_ptr).norm() << std::endl;
     
     std::unordered_map<int, std::shared_ptr<Eigen::Vector3d> > xyz_final;
     convertFromLidarToWorld(xyz_l, xyz_final, T_final);
-    writePointsJSON("copy_of_world.json", xyz_final);
+    std::string outputfile = points_in_lidar_frame.replace(points_in_lidar_frame.find_last_of('.'),5,"_converted.json");
+    writePointsJSON(outputfile.c_str(), xyz_final);
     
 }
 
