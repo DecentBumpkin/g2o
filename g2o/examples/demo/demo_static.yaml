@@ -1,0 +1,23 @@
+livox_points_path: /home/wei/PolyExplore/LivoxStatic/data/2020-07-31-15-09-15_2_select.json
+world_points_path: /home/wei/PolyExplore/LivoxStatic/data/2020-07-30-14-49-53_10_select.json
+origin_id: 20200731
+
+202007301:
+    x: -2.434008 
+    y: 4.626833 
+    z: 0.804462
+
+202007302: 
+    x: 0.544783 
+    y: 4.387306 
+    z: 0.808462
+
+202007303: 
+    x: -3.487483 
+    y: 0.477347 
+    z: 0.799462
+
+20200731:
+    x: -2.264543
+    y: 4.289994 
+    z: 0.800462

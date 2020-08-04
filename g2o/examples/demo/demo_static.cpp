@@ -123,6 +123,12 @@ int main(int argc, char* argv[]) {
     int vertex_id = 0; /* 0 is reserved for v_se3_il */
     for (auto& it : xyz_l)
     {
+
+        if(!xyz_w.count(it.first))
+        {
+            fprintf(stderr,"world collection does not include %d\n",it.first);
+            continue;
+        }
         g2o::VertexPointXYZ * v_xyz_w = new g2o::VertexPointXYZ();
         std::cout << (*xyz_w[it.first]).transpose() << std::endl;
         
@@ -150,8 +156,15 @@ int main(int argc, char* argv[]) {
     std::cout << " Initial Guess : \n" << T_wl_guess << '\n';
     std::cout << " Final Result  : \n" << T_final  << '\n';
     for(auto& it : xyz_l){
+        if(!xyz_w.count(it.first))
+        {
+            continue;
+        }
         std::cout << "total station: " << (*xyz_w[it.first]).transpose() << std::endl;
         std::cout << "livox aligned: " << T_final.map(*it.second).transpose() << std::endl;
+        double d1 = (*xyz_w[it.first] - *livox_origin_ptr).norm();
+        double d2 = it.second->norm();
+        printf("distance compare: %d %.3lf %.3lf\n",it.first,d1, d2 );
         printf("error: %.5lf\n", (*xyz_w[it.first] - T_final.map(*it.second)).norm());
     }
 
@@ -163,7 +176,12 @@ int main(int argc, char* argv[]) {
     convertFromLidarToWorld(xyz_l, xyz_final, T_final);
     std::string outputfile = points_in_lidar_frame.replace(points_in_lidar_frame.find_last_of('.'),5,"_converted.json");
     writePointsJSON(outputfile.c_str(), xyz_final);
-    
+
+    // for(auto it = xyz_l.begin() ; it != xyz_l.end(); it++){
+    //     for(auto it2 = it ; it2 != xyz_l.end(); it2++){
+    //         if(it == it2) continue;
+    //     }
+    // }
 }
 
 void convertFromLidarToWorld(const unordered_map<int, shared_ptr<Eigen::Vector3d> >& map_src,  
