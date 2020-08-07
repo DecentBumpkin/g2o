@@ -1,23 +1,42 @@
-livox_points_path: /home/wei/PolyExplore/LivoxStatic/data/2020-07-31-15-09-15_2_select.json
-world_points_path: /home/wei/PolyExplore/LivoxStatic/data/2020-07-30-14-49-53_10_select.json
-origin_id: 20200731
+# source_file: /home/wei/PolyExplore/LivoxStatic/scripts/feat_in_other_frame_0805.json
+source_file: /home/wei/PolyExplore/LivoxStatic/data/2020-08-06-11-36-24_2_select.json
+target_file: /home/wei/PolyExplore/LivoxStatic/scripts/feat_in_world_frame_0804_corrected.json
 
-202007301:
+origin_id: 0806A_ROT
+initial_guess:
+    translation: 
+        - -5
+        - -2
+        - 0
+    # translation: [-5,-2, 1] ### abbreviated form list, same as above
+    eular_angle: [0, 0, 0.78]   
+
+0730A:
     x: -2.434008 
     y: 4.626833 
     z: 0.804462
 
-202007302: 
+0730B: 
     x: 0.544783 
     y: 4.387306 
     z: 0.808462
 
-202007303: 
+0730C: 
     x: -3.487483 
     y: 0.477347 
     z: 0.799462
 
-20200731:
+0731A:
     x: -2.264543
     y: 4.289994 
     z: 0.800462
+
+0806A: 
+    x: -1.815078
+    y: 4.683591
+    z: 0.850000
+
+0806A_ROT: 
+    x: -4.683591
+    y: -1.815078
+    z: 0.850000

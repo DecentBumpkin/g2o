@@ -10,13 +10,14 @@ add_executable(demo
 
 include_directories(
     ${CHOLMOD_INCLUDE_DIR}
-    ../../../../LivoxStatic/RapidJSON/include/
 )
 
 target_link_libraries(demo core solver_cholmod types_slam3d)
+
+add_subdirectory(./lib)
 
 add_executable(demo_static
     demo_static.cpp
     types_static.cpp
 )
-target_link_libraries(demo_static core solver_cholmod types_slam3d ${YAML_CPP_LIBRARIES})
+target_link_libraries(demo_static core solver_cholmod types_slam3d json_io ${YAML_CPP_LIBRARIES})

@@ -67,3 +67,6 @@ bal_example.cpp bundle adjustment at large is using **ceres::internal::AutoDiffe
 **TODO**  
 rewrite EdgeSE3Expmap(SE3->SE3->SE3) to a unary edge(SE3->SE3->SE3)   
 set information matrix to identity is FINE, see [here](https://github.com/RainerKuemmerle/g2o/issues/325)  
+
+
+fopen is C, ifstream is C++

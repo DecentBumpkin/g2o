@@ -14,22 +14,11 @@
 #include "g2o/stuff/command_args.h"
 #include "types_static.hpp"
 
-#include "rapidjson/reader.h"
-#include "rapidjson/document.h"
-#include "rapidjson/prettywriter.h"
-#include "rapidjson/filereadstream.h"
-#include "rapidjson/filewritestream.h"
-
 #include <yaml-cpp/yaml.h>
-
+#include "lib/json_io.hpp"
 using namespace Eigen;
 using namespace std;
 
-int readPointsJSON(const char* name, unordered_map<int, shared_ptr<Eigen::Vector3d> >& map);
-int writePointsJSON(const char* name, const unordered_map<int, shared_ptr<Eigen::Vector3d> >& map);
-void convertFromLidarToWorld(const unordered_map<int, shared_ptr<Eigen::Vector3d> >& map_src,  
-                            unordered_map<int, shared_ptr<Eigen::Vector3d> >& map_final, 
-                            const g2o::SE3Quat& T);
 
 /* the only edge used in this example is EdgeProjectXYZ2UV, its linearizeOplus() defined in types_six_dof_expmap.cpp */
 int main(int argc, char* argv[]) {
@@ -53,22 +42,31 @@ int main(int argc, char* argv[]) {
             verbose?"YES":"NO",
             fixOrigin?"YES":"NO");
 
-    std::string points_in_lidar_frame;
-    std::string points_in_world_frame;
-    std::shared_ptr<Eigen::Vector3d> livox_origin_ptr;
+    std::string source_filename;
+    std::string target_filename;
+    std::shared_ptr<Eigen::Vector3d> fixed_origin_ptr;
+    std::vector<double> guess_translation;
+    std::vector<double> guess_eular_angle;
     try{
         YAML::Node config = YAML::LoadFile("../g2o/examples/demo/demo_static.yaml");
-        int origin_id = config["origin_id"].as<int>();
+        guess_translation = config["initial_guess"]["translation"].as<std::vector<double> >();
+        guess_eular_angle = config["initial_guess"]["eular_angle"].as<std::vector<double> >();
+        printf("use initial guess:\n");
+        printf("translation : %.3lf %.3lf %.3lf\n"
+                "eular angle : %.3lf %.3lf %.3lf\n", 
+                guess_translation[0], guess_translation[1], guess_translation[2],
+                guess_eular_angle[0], guess_eular_angle[1], guess_eular_angle[2]);
+        std::string origin_id = config["origin_id"].as<std::string>();
         double orig_x = config[origin_id]["x"].as<double>();
         double orig_y = config[origin_id]["y"].as<double>();
         double orig_z = config[origin_id]["z"].as<double>();
-        printf("Use Fixed Origin id = %d\n", origin_id);
-        livox_origin_ptr = std::make_shared<Eigen::Vector3d>(orig_x, orig_y, orig_z);
-        std::cout<<"Selected origin coord: \n" << livox_origin_ptr->transpose() << std::endl;
-        points_in_lidar_frame = config["livox_points_path"].as<std::string>();
-        points_in_world_frame = config["world_points_path"].as<std::string>();
-        std::cout<< "livox path: " << points_in_lidar_frame << std::endl;
-        std::cout<< "world path: " << points_in_world_frame << std::endl;
+        printf("Use Fixed Origin id = %s\n", origin_id.c_str());
+        fixed_origin_ptr = std::make_shared<Eigen::Vector3d>(orig_x, orig_y, orig_z);
+        std::cout<<"Selected origin coord: \n" << fixed_origin_ptr->transpose() << std::endl;
+        source_filename = config["source_file"].as<std::string>();
+        target_filename = config["target_file"].as<std::string>();
+        std::cout<< "source path: " << source_filename << std::endl;
+        std::cout<< "target path: " << target_filename << std::endl;
     }
     catch(std::exception& e){
         std::cout<< e.what() << std::endl;
@@ -77,14 +75,14 @@ int main(int argc, char* argv[]) {
     }
 
     unordered_map<int, shared_ptr<Eigen::Vector3d> > xyz_l, xyz_w;
-    if(readPointsJSON(points_in_lidar_frame.c_str(), xyz_l))
+    if(readPointsJSON(source_filename.c_str(), xyz_l))
     {
-        printf("Read lidar_frame failure!");
+        printf("Read Source failure!");
         return 1;
     }
-    if(readPointsJSON(points_in_world_frame.c_str(), xyz_w))
+    if(readPointsJSON(target_filename.c_str(), xyz_w))
     {
-        printf("Read world_frame failure!");
+        printf("Read Target failure!");
         return 1;
     }
 
@@ -98,23 +96,21 @@ int main(int argc, char* argv[]) {
     );
     optimizer.setAlgorithm(solver);
 
-    Eigen::Vector3d p_guess(6,0,0);
+    Eigen::Vector3d p_guess(guess_translation.data());
     Eigen::Quaterniond q_guess =  
-        Eigen::AngleAxisd(0, Vector3d::UnitX())* 
-        Eigen::AngleAxisd(0, Vector3d::UnitY())* 
-        Eigen::AngleAxisd(0.6, Vector3d::UnitZ());
+        Eigen::AngleAxisd(guess_eular_angle[0], Vector3d::UnitX())* 
+        Eigen::AngleAxisd(guess_eular_angle[1], Vector3d::UnitY())* 
+        Eigen::AngleAxisd(guess_eular_angle[2], Vector3d::UnitZ());
     g2o::SE3Quat T_wl_guess(q_guess, p_guess);
-    // Eigen::Vector3d p_temp(-2.016, 3.546, 0.829);
     // Eigen::Quaterniond q_temp(Eigen::AngleAxisd(-0.6, Vector3d::UnitZ()).toRotationMatrix()); /* operator= not supported */
-    // g2o::SE3Quat T_wl_guess(q_temp, p_temp);
 
-    std::cout << "Nominal Imu->Lidar SE3: \n" << T_wl_guess <<'\n';
+    std::cout << "Nominal source_frame -> target_frame SE3: \n" << T_wl_guess <<'\n';
     
     g2o::VertexSE3Expmap * v_se3_wl = new g2o::VertexSE3Expmap();
     if(fixOrigin) 
     {
         v_se3_wl-> setFixPositionMode(true);
-        v_se3_wl-> setFixPosition(livox_origin_ptr);
+        v_se3_wl-> setFixPosition(fixed_origin_ptr);
     }
     v_se3_wl->setId(0);
     v_se3_wl->setEstimate(T_wl_guess.inverse());
@@ -160,21 +156,33 @@ int main(int argc, char* argv[]) {
         {
             continue;
         }
-        std::cout << "total station: " << (*xyz_w[it.first]).transpose() << std::endl;
-        std::cout << "livox aligned: " << T_final.map(*it.second).transpose() << std::endl;
-        double d1 = (*xyz_w[it.first] - *livox_origin_ptr).norm();
-        double d2 = it.second->norm();
-        printf("distance compare: %d %.3lf %.3lf\n",it.first,d1, d2 );
-        printf("error: %.5lf\n", (*xyz_w[it.first] - T_final.map(*it.second)).norm());
+        std::cout << "Target: " << (*xyz_w[it.first]).transpose() << std::endl;
+        std::cout << "Converted Source: " << T_final.map(*it.second).transpose() << std::endl;
+        printf("id: %d, error: %.5lf\n", it.first, (*xyz_w[it.first] - T_final.map(*it.second)).norm());
+        if(fixOrigin){
+            double d1 = (*xyz_w[it.first] - *fixed_origin_ptr).norm();
+            double d2 = it.second->norm();
+            printf("distance compare: %d %.3lf %.3lf\n",it.first,d1, d2 );
+        }
     }
 
+    std::ofstream fmat;
+    std::string mat_filename = source_filename;
+    mat_filename.replace(mat_filename.find_last_of('.'),5,"_mat.txt");
+    fmat.open (mat_filename.c_str(), ios::trunc | ios::out);
+    printf("Writing matrix to %s\n",mat_filename.c_str());
+    fmat <<  T_final << '\n';
+    fmat.close();
+
     std::cout << "Final Transformation:\n" << T_final << std::endl;
-    std::cout << "Meausred lidar origin in lidar_frame: \n" << T_final.inverse().map(*livox_origin_ptr).transpose() << std::endl;
-    std::cout << "Meausred lidar origin in lidar_frame: " << T_final.inverse().map(*livox_origin_ptr).norm() << std::endl;
+    std::cout << "Meausred lidar origin in lidar_frame: \n" << T_final.inverse().map(*fixed_origin_ptr).transpose() << std::endl;
+    std::cout << "Meausred lidar origin in lidar_frame: " << T_final.inverse().map(*fixed_origin_ptr).norm() << std::endl;
     
     std::unordered_map<int, std::shared_ptr<Eigen::Vector3d> > xyz_final;
-    convertFromLidarToWorld(xyz_l, xyz_final, T_final);
-    std::string outputfile = points_in_lidar_frame.replace(points_in_lidar_frame.find_last_of('.'),5,"_converted.json");
+    Eigen::Affine3d A_final;
+    A_final.matrix() = T_final.to_homogeneous_matrix();
+    convertFromLidarToWorld(xyz_l, xyz_final, A_final);
+    std::string outputfile = source_filename.replace(source_filename.find_last_of('.'),5,"_converted.json");
     writePointsJSON(outputfile.c_str(), xyz_final);
 
     // for(auto it = xyz_l.begin() ; it != xyz_l.end(); it++){
@@ -182,78 +190,4 @@ int main(int argc, char* argv[]) {
     //         if(it == it2) continue;
     //     }
     // }
-}
-
-void convertFromLidarToWorld(const unordered_map<int, shared_ptr<Eigen::Vector3d> >& map_src,  
-                            unordered_map<int, shared_ptr<Eigen::Vector3d> >& map_final, 
-                            const g2o::SE3Quat& T){
-    map_final.clear();
-    for(auto& it : map_src){
-        map_final.emplace(it.first, make_shared<Eigen::Vector3d>(T.map(*it.second )) );
-    }
-    assert(map_src.size() == map_final.size());
-}
-
-int writePointsJSON(const char* name, const unordered_map<int, shared_ptr<Eigen::Vector3d> >& map){
-
-    rapidjson::Document doc;
-    doc.SetObject();
-    rapidjson::Value points_js = rapidjson::Value(rapidjson::kArrayType);
-    for(auto& it : map)
-    {
-        rapidjson::Value item(rapidjson::kObjectType);
-        rapidjson::Value point_js(rapidjson::kObjectType);
-        item.SetInt(it.first);
-        point_js.AddMember("id", item, doc.GetAllocator());
-        item.SetDouble((*it.second)[0]);
-        point_js.AddMember("x", item, doc.GetAllocator());
-        item.SetDouble((*it.second)[1]);
-        point_js.AddMember("y", item, doc.GetAllocator());
-        item.SetDouble((*it.second)[2]);
-        point_js.AddMember("z", item, doc.GetAllocator()); /* item is moved */
-        points_js.PushBack(point_js, doc.GetAllocator()); /* point is moved */
-    }
-    doc.AddMember("points", points_js, doc.GetAllocator() ); /* points is "moved" */
-    // save to json format
-    FILE* fp = fopen(name, "w"); // non-Windows use "w"
-    if(!fp) return 1;
-    char writeBuffer[65536];
-    rapidjson::FileWriteStream os(fp, writeBuffer, sizeof(writeBuffer));
-    rapidjson::PrettyWriter<rapidjson::FileWriteStream> fwriter(os);
-    fwriter.SetMaxDecimalPlaces(6);
-    doc.Accept(fwriter);
-    fclose(fp);
-
-    return 0;
-}
-
-int readPointsJSON(const char* name, unordered_map<int, shared_ptr<Eigen::Vector3d> >& map){
-    FILE* fp = fopen(name, "r"); // non-Windows use "r"
-    if(!fp) return 1;
-    char readBuffer[65536];
-    rapidjson::FileReadStream is(fp, readBuffer, sizeof(readBuffer));
-    rapidjson::Document doc;
-    doc.ParseStream(is);
-
-    if (doc.HasMember("points") && doc["points"].IsArray())
-    {
-        printf("reading lvx %u picked points...\n", doc["points"].Size());
-        const rapidjson::Value &array = doc["points"];
-        for(auto it = array.Begin(); it != array.End(); it++){
-        
-            if(it->HasMember("id") && (*it)["id"].IsInt() &&
-                it->HasMember("x") && (*it)["x"].IsDouble() &&
-                it->HasMember("y") && (*it)["y"].IsDouble() &&
-                it->HasMember("z") && (*it)["z"].IsDouble() ){
-                int id = (*it)["id"].GetInt();
-                double x = (*it)["x"].GetDouble();
-                double y = (*it)["y"].GetDouble();
-                double z = (*it)["z"].GetDouble();
-                printf("Read point %d %lf %lf %lf\n",id, x, y, z);
-                map.emplace(id, make_shared<Eigen::Vector3d>(x,y,z) );
-            }
-        }
-    }
-    fclose(fp);
-    return 0;
 }

@@ -64,21 +64,20 @@ bool Edge_SE3_XYZ::write(std::ostream& ) const
 }
 
 void Edge_SE3_XYZ::linearizeOplus(){
-    // const VertexSE3Expmap* v_se3_wl = static_cast<const VertexSE3Expmap*>(_vertices[0]);
+    const VertexSE3Expmap* v_se3_wl = static_cast<const VertexSE3Expmap*>(_vertices[0]);
     // const VertexPointXYZ* v_xyz_w = static_cast<const VertexPointXYZ*>(_vertices[1]);
 
-    // SE3Quat T_se3_wl = v_se3_wl->estimate();
+    SE3Quat T_se3_wl = v_se3_wl->estimate();
     Vector3 xyz_l = measurement();
-
-    // Vector3 xyz_w_meas = T_se3_wl.map(xyz_l);
+    Vector3 xyz_w_meas = T_se3_wl.map(xyz_l);
     // Matrix3 R_wl = T_se3_wl.rotation().toRotationMatrix();
     
     _jacobianOplusXj = -Matrix3::Identity();
     _jacobianOplusXi.block<3,3>(0,3) = Matrix3::Identity();
     // _jacobianOplusXi.block<3,3>(0,3) = Matrix3::Zero();
-    _jacobianOplusXi.block<3,1>(0,0) = - dRidx * xyz_l;
-    _jacobianOplusXi.block<3,1>(0,1) = - dRidy * xyz_l;
-    _jacobianOplusXi.block<3,1>(0,2) = - dRidz * xyz_l;
+    _jacobianOplusXi.block<3,1>(0,0) = - dRidx * xyz_w_meas;
+    _jacobianOplusXi.block<3,1>(0,1) = - dRidy * xyz_w_meas;
+    _jacobianOplusXi.block<3,1>(0,2) = - dRidz * xyz_w_meas;
     
 
 }

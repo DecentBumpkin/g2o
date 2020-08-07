@@ -35,7 +35,8 @@ public:
         {
           setEstimate(SE3Quat::exp(update)*estimate());
         }
-        else{
+        else
+        {
           SE3Quat temp = SE3Quat::exp(update) * estimate();
           temp.setTranslation(*Position);
           std::cout << temp << std::endl;
